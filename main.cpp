@@ -6,7 +6,7 @@
 
 using namespace std;
 
-// display borders
+// Proteus display pixel limits
 #define XLIM 319
 #define YLIM 239
 
@@ -64,7 +64,39 @@ int printMenuTitleCenteredAt(int xPos, int yPos)
     char firstWord[]={"Color"};
     char secondWord[]={"Run"};
 
-    int sleepDurationMS = 200;
+    int sleepDurationMS = 20;
+    int letterOverlap=2;
+    int lineSpacing=20;
+    int bottomPadding = 10;
+
+    int totalWidth=(strlen(firstWord)+strlen(secondWord)-letterOverlap)*CHAR_WIDTH;
+    
+    int firstWordXStart=xPos-(totalWidth/2);
+    int firstWordYStart=yPos+CHAR_HEIGHT/2;
+    
+    int secondWordXStart=xPos+(totalWidth/2)-(letterOverlap*(CHAR_WIDTH));
+    int secondWordYStart=firstWordYStart+lineSpacing;
+    for(int i=0, lim=strlen(firstWord);i<lim;i++) {
+        setRandomFontColor();
+        writeCenteredAt(firstWord[i],firstWordXStart+(i*(CHAR_WIDTH+2)),firstWordYStart);
+        Sleep(sleepDurationMS);
+    }
+    for(int i=0, lim=strlen(secondWord);i<lim;i++) {
+        setRandomFontColor();
+        writeCenteredAt(secondWord[i],secondWordXStart+(i*(CHAR_WIDTH+2)),secondWordYStart);
+        Sleep(sleepDurationMS);
+    }
+    
+
+    return 2*CHAR_HEIGHT+lineSpacing+bottomPadding;
+}
+// rainbow title 
+void rainbowTitle(int xPos, int yPos, int *x, int *y)
+{
+    char firstWord[]={"Color"};
+    char secondWord[]={"Run"};
+
+    int sleepDurationMS = 20;
     int letterOverlap=2;
     int lineSpacing=20;
     int bottomPadding = 10;
@@ -77,24 +109,26 @@ int printMenuTitleCenteredAt(int xPos, int yPos)
     int secondWordXStart=xPos+(totalWidth/2)-(letterOverlap*(CHAR_WIDTH));
     int secondWordYStart=firstWordYStart+lineSpacing;
 
-    for(int i=0, lim=strlen(firstWord);i<lim;i++) {
-        setRandomFontColor();
-        writeCenteredAt(firstWord[i],firstWordXStart+(i*(CHAR_WIDTH+2)),firstWordYStart);
-        Sleep(sleepDurationMS);
+    while(!LCD.Touch(x, y))
+    {
+        for(int i=0, lim=strlen(firstWord);i<lim;i++) {
+            setRandomFontColor();
+            writeCenteredAt(firstWord[i],firstWordXStart+(i*(CHAR_WIDTH+2)),firstWordYStart);
+            Sleep(sleepDurationMS);
+        }
+        for(int i=0, lim=strlen(secondWord);i<lim;i++) {
+            setRandomFontColor();
+            writeCenteredAt(secondWord[i],secondWordXStart+(i*(CHAR_WIDTH+2)),secondWordYStart);
+            Sleep(sleepDurationMS);
+        }
     }
-    for(int i=0, lim=strlen(secondWord);i<lim;i++) {
-        setRandomFontColor();
-        writeCenteredAt(secondWord[i],secondWordXStart+(i*(CHAR_WIDTH+2)),secondWordYStart);
-    }
-
-    return 2*CHAR_HEIGHT+lineSpacing+bottomPadding;
 }
-
 // print menu and return choice number based on button press
 int getMenuInput(){
 
     LCD.Clear();
 
+    int sleepDurationMS=200;
     int titleHeight=printMenuTitleCenteredAt(XLIM/2,menu_start_y+menu_button_height);
     
     const int numOptions=sizeof menuOptions / sizeof menuOptions[0];
@@ -109,6 +143,7 @@ int getMenuInput(){
         int yPos=startY+menu_button_height*(i+1);
 
         writeCenteredAt(menuOptions[i],xPos,yPos);
+        Sleep(sleepDurationMS);
     }
 
     // LCD.SetFontColor(RED);
@@ -120,8 +155,8 @@ int getMenuInput(){
     int buttonEndX=xPos+(menu_word_length_limit*CHAR_WIDTH)/2;
     while(1){
 
-        while(!LCD.Touch(&touchX, &touchY));
-
+        // while(!LCD.Touch(&touchX, &touchY));
+        rainbowTitle(XLIM/2,menu_start_y+menu_button_height,&touchX, &touchY);
         if(touchX>buttonStartX && touchX<buttonEndX)
         {
             touchY-=startY;
@@ -156,10 +191,43 @@ void play(){
 
 // display "instructions" message and wait for "quit" button press
 void displayInstructions(){
+    
     LCD.Clear();
-    writeCenteredAt("Instructions Here",XLIM/3,20);
+    
+    char instructions[][25] = {"Tap the top","half of the screen","to jump.","Tap the bottom","half of the screen","to duck.","Jump over ____","Duck under ____","Beat the high score!"};
+
+    int startX=5, startY=5;
+    int lineSpacing=10;
+    
+    int buttonWaitDuration=400;
+    int printWaitDuration=600;
+    
+
+    int buttonX=XLIM-5*CHAR_WIDTH, buttonY=YLIM-2*CHAR_HEIGHT;
+
+    int xPos=startX;
+    int yPos=startY+lineSpacing*3;
+
+    LCD.WriteAt("Instructions:",startX, startY);
+    for(int i=0, lim=sizeof(instructions)/sizeof(instructions[0]); i<lim; i++){
+
+        LCD.SetFontColor(WHITE);
+        LCD.WriteAt(instructions[i],xPos,yPos);
+        Sleep(printWaitDuration);
+        yPos+=CHAR_HEIGHT+lineSpacing;
+
+        if((i+1)%3==0){
+            waitForButton("Next",buttonX, buttonY);
+            Sleep(buttonWaitDuration);
+            LCD.Clear();
+            LCD.WriteAt("Instructions:",startX, startY);
+            yPos=startY+lineSpacing*3;
+        }
+    }
+
+    // writeCenteredAt("Instructions Here",XLIM/3,20);
     waitForButton("Quit", XLIM-CHAR_WIDTH*5, YLIM-CHAR_HEIGHT);
-    return;
+   return;
 }
 
 // display "set difficulty" message and wait for "quit" button press
