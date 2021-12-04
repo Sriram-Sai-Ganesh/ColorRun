@@ -90,7 +90,8 @@ int printMenuTitleCenteredAt(int xPos, int yPos)
 
     return 2*CHAR_HEIGHT+lineSpacing+bottomPadding;
 }
-// rainbow title 
+// Prints title  with rainbow color until screen is touched, 
+// modifies x and y to return touch location
 void rainbowTitle(int xPos, int yPos, int *x, int *y)
 {
     char firstWord[]={"Color"};
@@ -154,9 +155,11 @@ int getMenuInput(){
     int buttonStartX=xPos-(menu_word_length_limit*CHAR_WIDTH)/2;
     int buttonEndX=xPos+(menu_word_length_limit*CHAR_WIDTH)/2;
     while(1){
-
-        // while(!LCD.Touch(&touchX, &touchY));
+        
+        // Prints title  with rainbow color until screen is touched, 
+        // modifies x and y to return touch location
         rainbowTitle(XLIM/2,menu_start_y+menu_button_height,&touchX, &touchY);
+
         if(touchX>buttonStartX && touchX<buttonEndX)
         {
             touchY-=startY;
