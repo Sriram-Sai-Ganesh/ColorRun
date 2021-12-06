@@ -28,13 +28,13 @@ const int difficultyColors[]={GREEN, ORANGE, RED};
 const int GlobalPaletteDistance=80;
 
 // menu settings
-#define menu_start_y 15
+#define menu_start_y 0
 #define menu_button_height 25
 
 // longest menu word
 #define menu_word_length_limit 20
 
-const char menuOptions[][menu_word_length_limit] = { "Play","Instructions","Difficulty","Leaderboard","Credits"};
+const char menuOptions[][menu_word_length_limit] = { "Play","Instructions","Difficulty","Leaderboard","Credits", "Quit"};
 
 // variables to display screen
 const int screenRows = 200, screenColumns=300;
@@ -145,6 +145,15 @@ void writeCenteredAt(char c, int xPos, int yPos)
     writeCenteredAt(text.c_str(), xPos, yPos);
 }
 
+// makes and displays an icon with corner at (xPos, yPos)
+FEHIcon::Icon iconCornerAt(char *text, int xPos, int yPos, int fontColor, int borderColor=BGCOLOR)
+{
+    FEHIcon::Icon button;
+    button.SetProperties(text, xPos, yPos, strlen(text)*CHAR_WIDTH, CHAR_HEIGHT, borderColor, fontColor);
+    button.Draw();
+    return button;
+}
+
 // makes and displays an icon centered at (xPos, yPos)
 FEHIcon::Icon iconCenteredAt(char *text, int xPos, int yPos, int fontColor, int borderColor=BGCOLOR)
 {
@@ -163,7 +172,7 @@ int printMenuTitleCenteredAt(int xPos, int yPos)
     char firstWord[]={"Color"};
     char secondWord[]={"Run"};
 
-    int sleepDurationMS = 20;
+    int sleepDurationMS = 200;
     int letterOverlap=2;
     int lineSpacing=20;
     int bottomPadding = 10;
@@ -235,7 +244,6 @@ int getMenuInput(){
 
     int sleepDurationMS=200;
     int titleHeight=printMenuTitleCenteredAt(XLIM/2,menu_start_y+menu_button_height);
-    
     const int numOptions=sizeof menuOptions / sizeof menuOptions[0];
 
     LCD.SetFontColor(WHITE);
@@ -248,7 +256,7 @@ int getMenuInput(){
         int yPos=startY+menu_button_height*(i+1);
 
         writeCenteredAt(menuOptions[i],xPos,yPos);
-        Sleep(sleepDurationMS);
+        // Sleep(sleepDurationMS);
     }
 
     // LCD.SetFontColor(RED);
@@ -286,6 +294,21 @@ void waitForButton(char *text, int xPos, int yPos){
     }
 }
 
+// pause until icon is pressed
+void waitForIconPress(FEHIcon::Icon button){
+    int touchX,touchY;
+    while (1)
+    {
+        if(LCD.Touch(&touchX,&touchY))
+        {
+            if(button.Pressed(touchX,touchY,0))
+            {
+                Sleep(300);
+                return;
+            }
+        }
+    }
+}
 // initializes array size rows x columns to 0.
 void initializeToZero(int arr[screenRows][screenColumns], int rows = screenRows, int columns = screenColumns)
 {
@@ -363,6 +386,12 @@ void drawBackground(int background[screenRows][screenColumns],int color, int col
     }
 }
 
+// draws obstacles
+void drawObstacle(int obstacles[screenRows][screenColumns], int obstacleX, int obstacleY, int color, int distance)
+{
+    //TODO
+}
+
 // draws ground into 'ground' array
 void drawGround(int ground[screenRows][screenColumns], int groundHeight, int color, int distance)
 {
@@ -380,6 +409,7 @@ void drawSprite(int sprite[screenRows][screenColumns], int xPos, int yPos, int w
 {
     for(int i=yPos;i<yPos+height;i++){
         for(int j=xPos;j<xPos+width;j++){
+            // sprite[i][j]=color;
             sprite[i][j]=getNearbyColor(color, distance);
         }
     }
@@ -464,8 +494,8 @@ float getYShift(int sprite[screenRows][screenColumns], float airTime)
 {
     float t = airTime;
 
-    float stretch = 0.08;
-    float yShift = 50.25;
+    float stretch = 0.1;
+    float yShift = 80.25;
     float xShift = sqrt(yShift);
 
     return -(pow(stretch*t-xShift, 2))+yShift;
@@ -497,6 +527,22 @@ void drawOntoScreen(int screen[screenRows][screenColumns], int image[screenRows]
             if(image[i][j]>0)
             {
                 screen[i][j] = image[i][j];
+            }
+        }
+    }
+
+}
+
+// draws all non-zero pixels from 'image' onto 'screen'.
+void drawOntoScreen(int screen[screenRows][screenColumns], int image[screenRows][screenColumns], int column)
+{
+    for(int i=0;i<screenRows;i++)
+    {
+        for(int j=0;j<column;j++)
+        {
+            if(image[i][j]>0)
+            {
+                screen[i][screenColumns-j-column] = image[i][j];
             }
         }
     }
@@ -544,15 +590,13 @@ void play(){
     
     LCD.Clear();
     
-    int screenDrawSleep=1;
+    int screenDrawSleep=5;
 
     // velocities for different layers, 0-99
     int backgroundVelocity=95;
     int cloudVelocity=98;
     int groundVelocity=99;
 
-    // pixel height of ground
-    int groundHeight=20;
    
     // create arrays for each layer, and initialize to zero
     int screen[screenRows][screenColumns];
@@ -563,9 +607,17 @@ void play(){
    
     int clouds[screenRows][screenColumns];
     initializeToZero(clouds);
+    int numberOfClouds=5;
+    int cloudColor=0xefefef, cloudColorDistance=10;
 
     int ground[screenRows][screenColumns];
     initializeToZero(ground);
+    int groundHeight=50;
+
+    // int obstacles[screenRows][screenColumns];
+    // initializeToZero(obstacles);
+    // int obstacleHeight=20, obstacleWidth=10;
+    // int obstacleX=0, obstacleY = screenRows-groundHeight-obstacleHeight;
 
     int sprite[screenRows][screenColumns];
     initializeToZero(sprite);
@@ -575,16 +627,17 @@ void play(){
 
     
     // initialize different discrete layers
-    // drawBackground(background, difficultyColors[globalDifficultySetting], 20);
     drawBackground(background, SKYBLUE, 5);
-    drawClouds(clouds,5, 0xefefef, 10);
+    drawClouds(clouds,numberOfClouds, cloudColor, cloudColorDistance);
     drawGround(ground, screenRows-groundHeight, 0x9b7653-get24BitColor(globalDifficultySetting*32), 20);
+    // drawObstacle(obstacles, obstacleX,obstacleY, BROWN, 20);
     drawSprite(sprite, spriteX, spriteY, spriteWidth, spriteHeight, spriteColor, spriteColorDistance);
 
     // combine separate layers into 'screen' array
     drawOntoScreen(screen, background);
     drawOntoScreen(screen, clouds);
     drawOntoScreen(screen, ground);
+    // drawOntoScreen(screen, obstacles);
     drawOntoScreen(screen, sprite);
     
     // display 'screen' to Proteus display
@@ -594,7 +647,8 @@ void play(){
    
     bool flag=1;
     float airTime=-1;
-
+    // FEHIcon::Icon pauseButton = iconCornerAt("█ █", XLIM-CHAR_WIDTH*5, YLIM-CHAR_HEIGHT*10, BLACK);
+    FEHIcon::Icon pauseButton = iconCornerAt("PAUSE", 10, 10, BLACK);
     while(flag){
         
         if(loopCounter%(100-backgroundVelocity)==0){
@@ -610,10 +664,10 @@ void play(){
         }
 
         initializeToZero(sprite);
-        if(airTime>0)
+        if(airTime>=0)
         {
             int yShift = getYShift(sprite, airTime);
-            if(yShift==0){
+            if(yShift<=0){
                 airTime=-1;
                 }
             else {
@@ -629,12 +683,13 @@ void play(){
         drawOntoScreen(screen, clouds);
         drawOntoScreen(screen, ground);
         drawOntoScreen(screen, sprite);
+        pauseButton.Draw();
 
         displayScreen(screen);
 
         Sleep(screenDrawSleep);
         loopCounter++;
-        loopCounter%=10;
+        loopCounter%=1000000;
         int touchX, touchY;
         if(LCD.Touch(&touchX, &touchY))
         {
@@ -647,10 +702,16 @@ void play(){
             {
                 airTime=1;
             }
+            else if(pauseButton.Pressed(touchX, touchY, 0))
+            {
+                Sleep(200);
+                waitForIconPress(pauseButton);
+            }
         }
     }
     
-    waitForButton("Quit", XLIM-CHAR_WIDTH*5, YLIM-CHAR_HEIGHT);
+    FEHIcon::Icon quitButton = iconCornerAt("QUIT", XLIM-CHAR_WIDTH*5, YLIM-CHAR_HEIGHT, WHITE);
+    waitForIconPress(quitButton);
     
     return;
 }
@@ -686,7 +747,9 @@ void displayInstructions(){
         yPos+=CHAR_HEIGHT+lineSpacing;
 
         if((i+1)%3==0 && i<lim-1){
-            waitForButton("Next",buttonX, buttonY);
+            FEHIcon::Icon nextButton = iconCornerAt("Next", buttonX, buttonY, instructionsColor);
+            waitForIconPress(nextButton);
+            // waitForButton("Next",buttonX, buttonY);
             Sleep(BUTTON_PRESSED_SLEEP);
             LCD.Clear();
             yPos=startY+lineSpacing*3;
@@ -694,7 +757,9 @@ void displayInstructions(){
     }
 
     // writeCenteredAt("Instructions Here",XLIM/3,20);
-    waitForButton("Quit", XLIM-CHAR_WIDTH*5, YLIM-CHAR_HEIGHT);
+    // waitForButton("Quit", XLIM-CHAR_WIDTH*5, YLIM-CHAR_HEIGHT);
+   FEHIcon::Icon quitButton = iconCornerAt("QUIT", XLIM-CHAR_WIDTH*5, YLIM-CHAR_HEIGHT, instructionsColor);
+    waitForIconPress(quitButton);
    return;
 }
 
@@ -733,15 +798,24 @@ void setDifficulty(){
 void displayLeaderboard(){
     LCD.Clear();
     writeCenteredAt("Leaderboard Here",XLIM/3,20);
-    waitForButton("Quit", XLIM-CHAR_WIDTH*5, YLIM-CHAR_HEIGHT);
+    // waitForButton("Quit", XLIM-CHAR_WIDTH*5, YLIM-CHAR_HEIGHT);
+    FEHIcon::Icon quitButton = iconCornerAt("QUIT", XLIM-CHAR_WIDTH*5, YLIM-CHAR_HEIGHT, GRAY);
+    waitForIconPress(quitButton);
     return;
 }
 
 // display "credits" message and wait for "quit" button press
 void displayCredits(){
     LCD.Clear();
-    writeCenteredAt("Credits Here",XLIM/3,20);
-    waitForButton("Quit", XLIM-CHAR_WIDTH*5, YLIM-CHAR_HEIGHT);
+
+    writeCenteredAt("Color Run is by:",XLIM/3,20);
+    writeCenteredAt("Calvin Milush",XLIM/2,20+CHAR_HEIGHT+10);
+    writeCenteredAt("Sriram Sai Ganesh",XLIM/2,20+CHAR_HEIGHT*2+10);
+    FEHIcon::Icon quitButton = iconCornerAt("QUIT", XLIM-CHAR_WIDTH*5, YLIM-CHAR_HEIGHT, GRAY);
+    waitForIconPress(quitButton);
+
+    // writeCenteredAt("Credits Here",XLIM/3,20);
+    // waitForButton("Quit", XLIM-CHAR_WIDTH*5, YLIM-CHAR_HEIGHT);
     return;
 }
 
@@ -788,6 +862,10 @@ int main() {
             }
             case 4:{
                 displayCredits();
+                break;
+            }
+            case 5:{
+                return 0;
                 break;
             }
         }
