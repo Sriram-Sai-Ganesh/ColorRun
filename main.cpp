@@ -1,4 +1,6 @@
 #include <FEHLCD.h>
+#include <FEHSD.h>
+#include <vector>
 #include <FEHUtility.h>
 #include <FEHRandom.h>
 #include <string>
@@ -15,6 +17,10 @@ struct Boundaries{
     int endX, endY;
 };
 
+struct LeaderboardScore{
+    char initials[4];
+    int score;
+};
 // Returns new boundaries variable with specified values. Acts like constructor.
 Boundaries newBoundaries(int startX,int endX,int startY,int endY){
     Boundaries r;
@@ -388,17 +394,83 @@ Boundaries drawGround(int ground[screenRows][screenColumns], int groundHeight, i
     return newBoundaries(0,screenColumns, groundHeight, screenRows);
 }
 
+
 // draws sprite into 'sprite' array
-Boundaries drawSprite(int sprite[screenRows][screenColumns], int xPos, int yPos, int width, int height, int color, int distance)
+Boundaries drawSprite(int sprite[screenRows][screenColumns], int xPos, int yPos, int width, int height, int color, int distance, int figureNumber)
 {
-    for(int i=yPos;i<yPos+height;i++){
-        for(int j=xPos;j<xPos+width;j++){
+
+    int figure[3][20][20]
+          ={{{0,0,0,0,0,0,0,0,0,0,1,1,1,0,0,0,0,0,0,0},
+            {0,0,0,0,0,0,0,0,0,1,1,1,1,1,0,0,0,0,0,0},
+            {0,0,0,0,0,0,0,0,0,1,1,1,1,1,0,0,0,0,0,0},
+            {0,0,0,0,0,0,0,0,0,1,1,1,1,1,0,0,0,0,0,0},
+            {0,0,0,0,0,0,0,0,0,0,1,1,1,0,0,0,0,0,0,0},
+            {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0},
+            {0,0,0,0,0,0,0,0,1,1,1,1,0,0,0,0,0,0,0,0},
+            {0,0,0,0,0,0,1,1,1,1,1,1,0,0,0,0,0,0,0,0},
+            {0,0,0,0,0,1,1,0,0,1,1,1,1,0,0,1,1,0,0,0},
+            {0,0,0,0,0,1,0,0,1,1,1,1,1,1,1,1,1,0,0,0},
+            {0,0,0,0,1,1,0,0,1,1,1,0,1,1,1,0,0,0,0,0},
+            {0,0,0,0,1,1,0,0,1,1,1,0,0,0,0,0,0,0,0,0},
+            {0,0,0,0,0,0,0,0,1,1,1,0,0,0,0,0,0,0,0,0},
+            {0,0,0,0,0,0,0,0,1,1,1,1,0,0,0,0,0,0,0,0},
+            {0,0,0,0,0,0,0,1,1,0,1,1,1,0,0,0,0,0,0,0},
+            {0,0,0,0,0,0,0,1,1,0,0,1,1,0,0,0,0,0,0,0},
+            {0,0,0,0,0,1,1,1,0,0,0,0,1,1,0,0,0,0,0,0},
+            {0,0,1,1,1,1,1,0,0,0,0,0,1,1,0,0,0,0,0,0},
+            {0,0,1,1,0,0,0,0,0,0,0,0,0,1,1,0,0,0,0,0},
+            {0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,0,0,0,0,0}},
+            {{0,0,0,0,0,0,0,0,0,0,1,1,1,0,0,0,0,0,0,0},
+            {0,0,0,0,0,0,0,0,0,1,1,1,1,1,0,0,0,0,0,0},
+            {0,0,0,0,0,0,0,0,0,1,1,1,1,1,0,0,0,0,0,0},
+            {0,0,0,0,0,0,0,0,0,1,1,1,1,1,0,0,0,0,0,0},
+            {0,0,0,0,0,0,0,0,0,0,1,1,1,0,0,0,0,0,0,0},
+            {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0},
+            {0,0,0,0,0,0,0,0,0,1,1,1,0,0,0,0,0,0,0,0},
+            {0,0,0,0,0,0,0,0,1,1,1,1,0,0,0,0,0,0,0,0},
+            {0,0,0,0,0,0,0,1,1,1,1,1,0,0,0,0,0,0,0,0},
+            {0,0,0,0,0,0,0,1,1,1,1,1,0,0,0,0,0,0,0,0},
+            {0,0,0,0,0,0,1,1,0,1,1,1,0,1,1,0,0,0,0,0},
+            {0,0,0,0,0,0,1,1,0,1,1,1,1,1,1,0,0,0,0,0},
+            {0,0,0,0,0,0,0,1,1,1,1,0,0,0,0,0,0,0,0,0},
+            {0,0,0,0,0,0,0,0,1,1,1,1,0,0,0,0,0,0,0,0},
+            {0,0,0,0,0,0,0,0,0,1,1,1,0,0,0,0,0,0,0,0},
+            {0,0,0,0,0,0,0,0,0,1,0,1,0,0,0,0,0,0,0,0},
+            {0,0,0,0,0,1,1,1,1,1,0,1,0,0,0,0,0,0,0,0},
+            {0,0,0,0,0,1,1,0,0,0,1,1,0,0,0,0,0,0,0,0},
+            {0,0,0,0,0,0,0,0,0,1,1,1,0,0,0,0,0,0,0,0},
+            {0,0,0,0,0,0,0,0,0,1,1,0,0,0,0,0,0,0,0,0}}, 
+            {{0,0,0,0,0,0,0,0,0,0,1,1,1,0,0,0,0,0,0,0},
+            {0,0,0,0,0,0,0,0,0,1,1,1,1,1,0,0,0,0,0,0},
+            {0,0,0,0,0,0,0,0,0,1,1,1,1,1,0,0,0,1,1,0},
+            {0,0,0,0,0,0,0,0,0,1,1,1,1,1,0,0,1,1,1,0},
+            {0,0,0,0,0,0,0,0,0,0,1,1,1,0,0,0,1,1,0,0},
+            {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,0,0,0},
+            {0,0,0,0,0,0,0,0,0,1,1,1,0,0,1,1,1,0,0,0},
+            {0,0,0,0,0,0,0,1,1,1,1,1,1,1,1,1,0,0,0,0},
+            {0,0,0,0,0,1,1,1,1,1,1,1,1,1,1,0,0,0,0,0},
+            {0,0,0,0,1,1,1,0,0,1,1,1,1,0,0,0,0,0,0,0},
+            {0,0,0,1,1,1,0,0,1,1,1,1,0,0,0,0,0,0,0,0},
+            {0,0,1,1,0,0,0,0,1,1,1,1,0,0,0,0,0,0,0,0},
+            {0,0,1,1,0,0,0,1,1,1,1,1,1,0,0,0,0,0,0,0},
+            {0,0,0,0,0,0,1,1,1,1,1,1,1,1,1,0,0,0,0,0},
+            {0,0,0,0,0,0,1,0,0,0,0,0,1,1,1,1,0,0,0,0},
+            {0,0,0,0,0,1,1,0,0,0,0,0,0,0,1,1,0,0,0,0},
+            {0,0,0,0,1,1,1,0,0,0,0,0,0,0,1,1,0,0,0,0},
+            {0,0,0,1,1,1,0,0,0,0,0,0,0,1,1,0,0,0,0,0},
+            {0,0,0,1,1,0,0,0,0,0,0,1,1,1,0,0,0,0,0,0},
+            {0,0,0,1,1,0,0,0,0,0,0,1,1,0,0,0,0,0,0,0}}};
+
+
+    for(int i=yPos, row=0;row<20;i++, row++){
+        for(int j=xPos, col=0;col<20;j++, col++){
             // sprite[i][j]=color;
-            sprite[i][j]=getNearbyColor(color, distance);
+            if(figure[figureNumber][row][col])sprite[i][j]=getNearbyColor(color, distance);
         }
     }
     return newBoundaries(yPos, yPos+height, xPos, xPos+width);
 }
+
 
 //checks if two layers have any intersection
 bool checkCollision(int sprite[screenRows][screenColumns], int obstacles[screenRows][screenColumns])
@@ -602,13 +674,13 @@ Boundaries drawOntoEndOfScreen(int screen[screenRows][screenColumns], int image[
 
     return r;
 }
-// FUNCTIONS HANDLING MAIN MENU IO____________________________________________________
+// FUNCTIONS HANDLING MAIN MENU IO____________________________________________________.
 
 // display "play game" message and wait for "quit" button press
 void play(){
     
     LCD.Clear();
-    
+    int score=0;
     int screenDrawSleep=1;
 
     // velocities for different layers, 0-99
@@ -660,7 +732,7 @@ void play(){
     drawBackground(background, SKYBLUE, 15);
     Boundaries cloudBoundaries = drawClouds(clouds,numberOfClouds, cloudColor, cloudColorDistance);
     Boundaries groundBoundaries = drawGround(ground, screenRows-groundHeight, 0x9b7653-get24BitColor(globalDifficultySetting*32), 20);
-    Boundaries spriteBoundaries = drawSprite(sprite, spriteX, spriteY, spriteWidth, spriteHeight, spriteColor, spriteColorDistance);
+    Boundaries spriteBoundaries = drawSprite(sprite, spriteX, spriteY, spriteWidth, spriteHeight, spriteColor, spriteColorDistance, 1);
 
     // combine separate layers into 'screen' array
     drawOntoScreen(screen, background);
@@ -681,11 +753,13 @@ void play(){
     int timeSinceObstacle=0;
     bool spawnObstacle=0, preppedObstacle=0;
     FEHIcon::Icon pauseButton = iconCornerAt("PAUSE", XLIM-20, 20, BLACK);
+    
     while(flag){
+        score++;
         if(checkCollision(sprite, obstacle))
         {
-            Sleep(5.0);
-            return;
+            Sleep(3.0);
+            break;
         }
         if(loopCounter%(100-backgroundVelocity)==0){
             moveLeft(background,backgroundMoveSpaces);
@@ -731,15 +805,14 @@ void play(){
                 airTime=-1;
                 }
             else {
-                drawSprite(sprite, spriteX, spriteY-yShift, spriteWidth, spriteHeight, spriteColor, spriteColorDistance);
+                drawSprite(sprite, spriteX, spriteY-yShift, spriteWidth, spriteHeight, spriteColor, spriteColorDistance, 2);
                 airTime++;
             }
         }
         else {
-            drawSprite(sprite, spriteX, spriteY, spriteWidth, spriteHeight, spriteColor, spriteColorDistance);
+            drawSprite(sprite, spriteX, spriteY, spriteWidth, spriteHeight, spriteColor, spriteColorDistance, loopCounter/16 % 2);
         }
         
-
         drawOntoScreen(screen, background);
         drawOntoScreen(screen, clouds);
         drawOntoScreen(screen, ground);
@@ -747,6 +820,13 @@ void play(){
         drawOntoScreen(screen, sprite);
         
         displayScreen(screen);
+
+        LCD.SetFontColor(WHITE);
+        writeCenteredAt("Score:", XLIM/5, 10);
+        LCD.SetFontColor(BLACK);
+        LCD.FillRectangle(XLIM/5+CHAR_WIDTH*3.5, 0, 200, 18);
+        LCD.SetFontColor(WHITE);
+        writeCenteredAt(to_string(score).c_str(), XLIM/5+CHAR_WIDTH*7, 10);
 
         Sleep(screenDrawSleep);
         loopCounter++;
@@ -772,7 +852,109 @@ void play(){
     }
     
     FEHIcon::Icon quitButton = iconCornerAt("QUIT", XLIM-CHAR_WIDTH*5, YLIM-CHAR_HEIGHT, WHITE);
-    waitForIconPress(quitButton);
+
+    int characterInts[3];
+    char characterChars[3];
+    char characterStrings[3][2];
+    char characterStringFinal[4];
+    characterStringFinal[3] = '\0';
+
+    for (int i = 0; i < 3; i++)
+    {
+        characterInts[i] = 65;
+        characterChars[i] = (char)characterInts[i];
+        characterStringFinal[i] = characterChars[i];
+        characterStrings[i][0] = characterChars[i];
+        characterStrings[i][1] = '\0';
+    }
+
+    LCD.SetFontColor(BLACK);
+    LCD.FillRectangle(XLIM/2-CHAR_WIDTH*1.5, YLIM/2-CHAR_WIDTH/2-1, CHAR_WIDTH*3, CHAR_HEIGHT);
+    FEHIcon::Icon character1 = iconCenteredAt(characterStrings[0], XLIM/2-CHAR_WIDTH, YLIM/2, WHITE);
+    FEHIcon::Icon character2 = iconCenteredAt(characterStrings[1], XLIM/2, YLIM/2, WHITE);
+    FEHIcon::Icon character3 = iconCenteredAt(characterStrings[2], XLIM/2+CHAR_WIDTH, YLIM/2, WHITE);
+
+    int touchX, touchY;
+    while (1)
+    {
+        if (LCD.Touch(&touchX,&touchY))
+        {
+            if (quitButton.Pressed(touchX,touchY,1))
+            {
+                break;
+            }
+            else if (character1.Pressed(touchX,touchY,1))
+            {
+                if (characterInts[0] < 90)
+                    characterInts[0] += 1;
+                else
+                    characterInts[0] = 65;
+                characterChars[0] = (char)characterInts[0];
+                characterStringFinal[0] = characterChars[0];
+                characterStrings[0][0] = characterChars[0];
+                character1.ChangeLabelString(characterStrings[0]);
+            }
+            else if (character2.Pressed(touchX,touchY,1))
+            {
+                if (characterInts[1] < 90)
+                    characterInts[1] += 1;
+                else
+                    characterInts[1] = 65;
+                characterChars[1] = (char)characterInts[1];
+                characterStringFinal[1] = characterChars[1];
+                characterStrings[1][0] = characterChars[1];
+                character2.ChangeLabelString(characterStrings[1]);
+            }
+            else if (character3.Pressed(touchX,touchY,1))
+            {
+                if (characterInts[2] < 90)
+                    characterInts[2] += 1;
+                else
+                    characterInts[2] = 65;
+                characterChars[2] = (char)characterInts[2];
+                characterStringFinal[2] = characterChars[2];
+                characterStrings[2][0] = characterChars[2];
+                character3.ChangeLabelString(characterStrings[2]);
+            }
+            Sleep(200);
+        }
+    }
+
+    
+    FEHFile *scoreptr = SD.FOpen("scores.txt", "r");
+    
+    vector<LeaderboardScore> scoresVec;
+    
+    LeaderboardScore temp;
+    
+    while(SD.FScanf(scoreptr, "%d%s", &(temp.score), &(temp.initials)) != EOF)
+    {
+        scoresVec.push_back(temp);
+    }
+    
+    SD.FClose(scoreptr);
+    
+
+    scoreptr = SD.FOpen("scores.txt", "w");
+    int scoreWritten = 0;
+    for (int j = 0; j < scoresVec.size(); j++)
+    {
+        if (score > (scoresVec.at(j)).score && !scoreWritten)
+        {
+            SD.FPrintf(scoreptr, "%d\t%s\n", score, characterStringFinal);
+            j--;
+            scoreWritten = 1;
+        }
+        else
+        {
+            SD.FPrintf(scoreptr, "%d\t%s\n", (scoresVec.at(j)).score, (scoresVec.at(j)).initials);
+        }
+    }
+    if (!scoreWritten)
+    {
+        SD.FPrintf(scoreptr, "%d\t%s\n", score, characterStringFinal);
+    }
+    SD.FClose(scoreptr);
     
     return;
 }
@@ -857,9 +1039,25 @@ void setDifficulty(){
 
 // display "leaderboard" placeholder and wait for "quit" button press
 void displayLeaderboard(){
-    LCD.Clear();
-    writeCenteredAt("Leaderboard Here",XLIM/3,20);
-    // waitForButton("Quit", XLIM-CHAR_WIDTH*5, YLIM-CHAR_HEIGHT);
+        LCD.Clear();
+
+    FEHFile *scoreptr = SD.FOpen("scores.txt", "r");
+    int scoreHolder;
+    char initialHolder[10];
+    for (int i = 1; i <= 14; i++)
+    {
+        if (SD.FScanf(scoreptr, "%d%s", &scoreHolder, &initialHolder) == EOF)
+        {
+            break;
+        }
+        LCD.WriteAt(i, 0, (i-1)*CHAR_HEIGHT);
+        LCD.WriteAt('.', CHAR_WIDTH*1*to_string(i).length(), (i-1)*CHAR_HEIGHT);
+        LCD.WriteAt(initialHolder, CHAR_WIDTH*3, (i-1)*CHAR_HEIGHT);
+        LCD.WriteAt(scoreHolder, CHAR_WIDTH*8, (i-1)*CHAR_HEIGHT);
+    }
+
+    SD.FClose(scoreptr);
+
     FEHIcon::Icon quitButton = iconCornerAt("QUIT", XLIM-CHAR_WIDTH*5, YLIM-CHAR_HEIGHT, GRAY);
     waitForIconPress(quitButton);
     return;
