@@ -5,46 +5,32 @@
 #include <iostream>
 #include <cmath>
 
+#include "GlobalVariables.h"
+
 using namespace std;
 
-// Proteus display pixel limits
-#define XLIM 319
-#define YLIM 239
+// Structure to store x and y boundaries of boxes
+struct Boundaries{
+    int startX, startY;
+    int endX, endY;
+};
 
-// character properties
-#define CHAR_HEIGHT 17
-#define CHAR_WIDTH 12
-
-// colors
-int BGCOLOR=BLACK;
-
-//button sleep duration
-#define BUTTON_PRESSED_SLEEP 300
-
-// 1 2 or 3 index for Easy, Medium or Hard
-int globalDifficultySetting=0;
-char difficultyOptions[][10] = { "Easy","Medium", "Hard"};
-const int difficultyColors[]={GREEN, ORANGE, RED};
-const int GlobalPaletteDistance=80;
-
-// menu settings
-#define menu_start_y 0
-#define menu_button_height 25
-
-// longest menu word
-#define menu_word_length_limit 20
-
-const char menuOptions[][menu_word_length_limit] = { "Play","Instructions","Difficulty","Leaderboard","Credits", "Quit"};
-
-// variables to display screen
-const int screenRows = 200, screenColumns=300;
+// Returns new boundaries variable with specified values. Acts like constructor.
+Boundaries newBoundaries(int startX,int endX,int startY,int endY){
+    Boundaries r;
+    r.startX = startX;
+    r.endX = endX;
+    r.startY = startY;
+    r.endY = endY;
+    return r;
+}
 
 // return random int from lower to upper
 int getRand(int lower=0, int upper=255){
     return Random.RandInt()%(upper-lower)+lower;
 }
 
-// COLOR FUNCTIONS
+// COLOR FUNCTIONS___________________________________________________________
 
 // return (r,g,b) parameters as 1 int 24 bit color
 int get24BitColor(int r, int g, int b){
@@ -114,20 +100,7 @@ void displayPossiblePalette(int color, int distance, int xs, int ys)
     }
 }
 
-// doesn't work smh. supposed to display grid of possible color palette squares
-void displayPaletteGrid(int color, int start=0, int step=10){
-    int distance=0;
-    LCD.SetFontColor(color);
-
-    for(int j=0;j<5;j++){
-        for(int i=0;i<5;i++){
-            displayPossiblePalette(color, distance,i*41,j*41);
-            distance+=10;
-        }
-    }
-}
-
-// WRITING AND COLOR UTILITY FUNCTIONS
+// WRITING AND COLOR UTILITY FUNCTIONS______________________________________________
 
 // print param text centered at (xPos, yPos)
 void writeCenteredAt(const char *text, int xPos, int yPos)
@@ -301,7 +274,7 @@ void waitForIconPress(FEHIcon::Icon button){
     {
         if(LCD.Touch(&touchX,&touchY))
         {
-            if(button.Pressed(touchX,touchY,0))
+            if(button.Pressed(touchX,touchY,1))
             {
                 Sleep(300);
                 return;
@@ -309,6 +282,7 @@ void waitForIconPress(FEHIcon::Icon button){
         }
     }
 }
+
 // initializes array size rows x columns to 0.
 void initializeToZero(int arr[screenRows][screenColumns], int rows = screenRows, int columns = screenColumns)
 {
@@ -318,7 +292,7 @@ void initializeToZero(int arr[screenRows][screenColumns], int rows = screenRows,
     }
 }
 
-// DRAWING FUNCTIONS FOR GAMEPLAY
+// DRAWING FUNCTIONS FOR GAMEPLAY______________________________________________
 
 // draws single cloud centered at xPos and yPos.
 void drawCloudCenteredAt(int clouds[screenRows][screenColumns], int xPos, int yPos, int width, int height, int color, int distance){
@@ -353,7 +327,7 @@ void drawCloudCenteredAt(int clouds[screenRows][screenColumns], int xPos, int yP
 }
 
 // draws clouds onto 2d array image
-void drawClouds(int clouds[screenRows][screenColumns], int numberOfClouds, int color, int distance)
+Boundaries drawClouds(int clouds[screenRows][screenColumns], int numberOfClouds, int color, int distance)
 {   
     int cloudStartX=0, cloudStartY=0;
     int cloudEndY=screenRows/3;
@@ -372,6 +346,8 @@ void drawClouds(int clouds[screenRows][screenColumns], int numberOfClouds, int c
 
         drawCloudCenteredAt(clouds, xPos, yPos, w, h, color, distance);
     }
+    // return boundary of modified indices in array
+    return newBoundaries(0,screenColumns, 0, screenRows/3);
 }
 
 // draws colored background into 'background' 2D array
@@ -387,13 +363,20 @@ void drawBackground(int background[screenRows][screenColumns],int color, int col
 }
 
 // draws obstacles
-void drawObstacle(int obstacles[screenRows][screenColumns], int obstacleX, int obstacleY, int color, int distance)
+void drawObstacle(int obstacle[screenRows][screenColumns], int obstacleY, int w, int h, int color, int colorDistance)
 {
-    //TODO
+    int startX=screenColumns-w,endX=screenColumns;
+    int startY=obstacleY-h, endY=obstacleY;
+
+    for(int i=startX; i<endX; i++)
+    {
+        for(int j=startY; j<endY; j++)
+        obstacle[j][i]=getNearbyColor(color,colorDistance);
+    }
 }
 
 // draws ground into 'ground' array
-void drawGround(int ground[screenRows][screenColumns], int groundHeight, int color, int distance)
+Boundaries drawGround(int ground[screenRows][screenColumns], int groundHeight, int color, int distance)
 {
     for(int i=groundHeight;i<screenRows;i++)
     {
@@ -402,10 +385,11 @@ void drawGround(int ground[screenRows][screenColumns], int groundHeight, int col
             ground[i][j]=getNearbyColor(color, distance);
         }
     }
+    return newBoundaries(0,screenColumns, groundHeight, screenRows);
 }
 
 // draws sprite into 'sprite' array
-void drawSprite(int sprite[screenRows][screenColumns], int xPos, int yPos, int width, int height, int color, int distance)
+Boundaries drawSprite(int sprite[screenRows][screenColumns], int xPos, int yPos, int width, int height, int color, int distance)
 {
     for(int i=yPos;i<yPos+height;i++){
         for(int j=xPos;j<xPos+width;j++){
@@ -413,28 +397,31 @@ void drawSprite(int sprite[screenRows][screenColumns], int xPos, int yPos, int w
             sprite[i][j]=getNearbyColor(color, distance);
         }
     }
+    return newBoundaries(yPos, yPos+height, xPos, xPos+width);
+}
+
+//checks if two layers have any intersection
+bool checkCollision(int sprite[screenRows][screenColumns], int obstacles[screenRows][screenColumns])
+{
+    for(int i=0;i<screenRows;i++){
+        for(int j=0;j<screenColumns;j++){
+            if(sprite[i][j]>0 && obstacles[i][j]>0)return true;
+        }
+    }
+    return false;
 }
 
 // moves entire array 1 space up
 void moveUp(int screen[screenRows][screenColumns])
 {
-    int firstRow[screenColumns];
-    for(int i=0;i<screenColumns;i++)
+    for(int col=0;col<screenColumns;col++)
     {
-        firstRow[i]=screen[0][i];
-    }
-
-    for(int i=0;i<screenRows-1;i++)
-    {
-        for(int j=0;j<screenColumns;j++)
+        int first = screen[0][col];
+        for(int row=0;row<screenRows-1;row++)
         {
-           screen[i][j]=screen[i+1][j];
+            screen[row][col]=screen[row+1][col];
         }
-    }
-    
-   for(int i=0;i<screenColumns;i++)
-    {
-        screen[screenRows-1][i]=firstRow[i];
+        screen[screenRows-1][col]=first;
     }
 }
 
@@ -449,23 +436,15 @@ void moveUp(int arr[screenRows][screenColumns], int n){
 // moves entire array 1 space down
 void moveDown(int screen[screenRows][screenColumns])
 {
-    int lastRow[screenColumns];
-    for(int i=0;i<screenColumns;i++)
+    for(int col=0;col<screenColumns;col++)
     {
-        lastRow[i]=screen[screenRows-1][i];
-    }
-
-    for(int i=screenRows-1;i>0;i--)
-    {
-        for(int j=0;j<screenColumns;j++)
+        int last = screen[screenRows-1][col];
+        for(int row=0;row<screenRows-1;row++)
         {
-            screen[i][j]=screen[i-1][j];
+            screen[row][col]=screen[row][col+1];
         }
-    }
-    
-   for(int i=0;i<screenColumns;i++)
-    {
-        screen[0][i]=lastRow[i];
+        screen[0][col]=last;
+
     }
 }
 
@@ -490,11 +469,12 @@ void yShiftArray(int arr[screenRows][screenColumns], int yShift)
 }
 
 // updates sprite position to perform jump animation
-float getYShift(int sprite[screenRows][screenColumns], float airTime)
+float getYShift(int sprite[screenRows][screenColumns], float airTime, float jumpSpeed)
 {
     float t = airTime;
-
+    
     float stretch = 0.1;
+    stretch+=jumpSpeed/1000.0;
     float yShift = 80.25;
     float xShift = sqrt(yShift);
 
@@ -517,12 +497,12 @@ void displayScreen(int screen[screenRows][screenColumns])
     }
 }
 
-// draws all non-zero pixels from 'image' onto 'screen'.
-void drawOntoScreen(int screen[screenRows][screenColumns], int image[screenRows][screenColumns])
+// draws all non-zero pixels from 'image' onto 'screen', restricting loop to boundary coordinates.
+void drawOntoScreen(int screen[screenRows][screenColumns], int image[screenRows][screenColumns], Boundaries coordLimits)
 {
-    for(int i=0;i<screenRows;i++)
+    for(int i=coordLimits.startY;i<coordLimits.endY;i++)
     {
-        for(int j=0;j<screenColumns;j++)
+        for(int j=coordLimits.startX;j<coordLimits.endX;j++)
         {
             if(image[i][j]>0)
             {
@@ -531,6 +511,13 @@ void drawOntoScreen(int screen[screenRows][screenColumns], int image[screenRows]
         }
     }
 
+}
+
+// draws all non-zero pixels from 'image' onto 'screen'.
+void drawOntoScreen(int screen[screenRows][screenColumns], int image[screenRows][screenColumns])
+{
+    Boundaries defaultBoundaries = newBoundaries(0,screenColumns, 0,screenRows);
+    drawOntoScreen(screen, image, defaultBoundaries);
 }
 
 // draws all non-zero pixels from 'image' onto 'screen'.
@@ -556,20 +543,13 @@ void moveLeft(int screen[screenRows][screenColumns])
     for(int i=0;i<screenRows;i++)
     {
         firstCol[i]=screen[i][0];
-    }
-
-    for(int i=0;i<screenRows;i++)
-    {
         for(int j=0;j<screenColumns-1;j++)
         {
            screen[i][j]=screen[i][j+1];
         }
-    }
-    
-    for(int i=0;i<screenRows;i++)
-    {
         screen[i][screenColumns-1]=firstCol[i];
     }
+
 
 }
 
@@ -583,19 +563,67 @@ void moveLeft(int screen[screenRows][screenColumns], int spaces)
 
 }
 
-// FUNCTIONS HANDLING MAIN MENU
+// moves the entire screen
+void moveLeftNoWrap(int screen[screenRows][screenColumns])
+{
+    for(int i=0;i<screenRows;i++)
+    {
+        for(int j=0;j<screenColumns-1;j++)
+        {
+           screen[i][j]=screen[i][j+1];
+        }
+        screen[i][screenColumns-1]=0;
+    }
+
+}
+
+// moves the entire screen 'spaces' times
+void moveLeftNoWrap(int screen[screenRows][screenColumns], int spaces)
+{
+    for(int i=0;i<spaces;i++)
+    {
+        moveLeftNoWrap(screen);   
+    }
+
+}
+
+// draws all non-zero pixels from 'image' onto 'screen', restricting loop to boundary coordinates.
+Boundaries drawOntoEndOfScreen(int screen[screenRows][screenColumns], int image[screenRows][screenColumns], int numberOfColumns)
+{
+    Boundaries r = newBoundaries(screenColumns-numberOfColumns, numberOfColumns, 0, screenRows);
+    numberOfColumns%=screenColumns;
+    for(int rowCounter=0;rowCounter<screenRows;rowCounter++)
+    {
+        for(int i=numberOfColumns-1;i>=0;i--)
+        {
+            screen[rowCounter][screenColumns-numberOfColumns+i] = image[rowCounter][i];
+        }
+    }
+
+    return r;
+}
+// FUNCTIONS HANDLING MAIN MENU IO____________________________________________________
 
 // display "play game" message and wait for "quit" button press
 void play(){
     
     LCD.Clear();
     
-    int screenDrawSleep=5;
+    int screenDrawSleep=1;
 
     // velocities for different layers, 0-99
+    // moveSpaces decide how many pixels to shift by each frame
     int backgroundVelocity=95;
+    int backgroundMoveSpaces=2;
+
     int cloudVelocity=98;
+    int cloudMoveSpaces=2;
+
     int groundVelocity=99;
+    int groundMoveSpaces=2;
+
+    int obstacleVelocity=99;
+    int obstacleMoveSpaces=2;
 
    
     // create arrays for each layer, and initialize to zero
@@ -614,59 +642,91 @@ void play(){
     initializeToZero(ground);
     int groundHeight=50;
 
-    // int obstacles[screenRows][screenColumns];
-    // initializeToZero(obstacles);
-    // int obstacleHeight=20, obstacleWidth=10;
-    // int obstacleX=0, obstacleY = screenRows-groundHeight-obstacleHeight;
+    int obstacle[screenRows][screenColumns];
+    initializeToZero(obstacle);
+    int obstacleTimer=200;
+    int obY=screenRows-groundHeight, obColor=BLUE, obColorDistance=10;
+    int obW=30, obH=40;
 
     int sprite[screenRows][screenColumns];
     initializeToZero(sprite);
     int spriteWidth=20, spriteHeight=20;
     int spriteX = 40+spriteWidth+(YLIM-screenColumns)/2, spriteY =screenRows-groundHeight-spriteHeight; 
     int spriteColor=YELLOW, spriteColorDistance=10;
+    float spriteJumpSpeed=150;
 
     
     // initialize different discrete layers
-    drawBackground(background, SKYBLUE, 5);
-    drawClouds(clouds,numberOfClouds, cloudColor, cloudColorDistance);
-    drawGround(ground, screenRows-groundHeight, 0x9b7653-get24BitColor(globalDifficultySetting*32), 20);
-    // drawObstacle(obstacles, obstacleX,obstacleY, BROWN, 20);
-    drawSprite(sprite, spriteX, spriteY, spriteWidth, spriteHeight, spriteColor, spriteColorDistance);
+    drawBackground(background, SKYBLUE, 15);
+    Boundaries cloudBoundaries = drawClouds(clouds,numberOfClouds, cloudColor, cloudColorDistance);
+    Boundaries groundBoundaries = drawGround(ground, screenRows-groundHeight, 0x9b7653-get24BitColor(globalDifficultySetting*32), 20);
+    Boundaries spriteBoundaries = drawSprite(sprite, spriteX, spriteY, spriteWidth, spriteHeight, spriteColor, spriteColorDistance);
 
     // combine separate layers into 'screen' array
     drawOntoScreen(screen, background);
-    drawOntoScreen(screen, clouds);
-    drawOntoScreen(screen, ground);
+    drawOntoScreen(screen, clouds, cloudBoundaries);
+    drawOntoScreen(screen, ground, groundBoundaries);
+
+
     // drawOntoScreen(screen, obstacles);
-    drawOntoScreen(screen, sprite);
+    drawOntoScreen(screen, sprite, spriteBoundaries);
     
     // display 'screen' to Proteus display
     displayScreen(screen);
 
-    int loopCounter=0;
+    int loopCounter=1;
    
     bool flag=1;
     float airTime=-1;
-    // FEHIcon::Icon pauseButton = iconCornerAt("█ █", XLIM-CHAR_WIDTH*5, YLIM-CHAR_HEIGHT*10, BLACK);
-    FEHIcon::Icon pauseButton = iconCornerAt("PAUSE", 10, 10, BLACK);
+    int timeSinceObstacle=0;
+    bool spawnObstacle=0, preppedObstacle=0;
+    FEHIcon::Icon pauseButton = iconCornerAt("PAUSE", XLIM-20, 20, BLACK);
     while(flag){
-        
+        if(checkCollision(sprite, obstacle))
+        {
+            Sleep(5.0);
+            return;
+        }
         if(loopCounter%(100-backgroundVelocity)==0){
-            moveLeft(background,1);
+            moveLeft(background,backgroundMoveSpaces);
         }   
 
         if(loopCounter%(100-cloudVelocity)==0){
-            moveLeft(clouds,1);
+            moveLeft(clouds,cloudMoveSpaces);
         }
 
         if(loopCounter%(100-groundVelocity)==0){
-            moveLeft(ground,1);
+            moveLeft(ground,groundMoveSpaces);
         }
+
+        if(!spawnObstacle && loopCounter%obstacleTimer==0){
+            spawnObstacle = 1;
+            cout<<"spawning\n";
+        }
+        // cout<<"\n"<<loopCounter;
+        if(spawnObstacle)
+        {
+            if(!preppedObstacle){
+                initializeToZero(obstacle);
+                drawObstacle(obstacle, obY, obW, obH, obColor, obColorDistance);
+                preppedObstacle=1;
+            }
+
+            // moveLeftNoWrap(obstacle, obstacleMoveSpaces);
+            if(obstacle[obY-obH+1][0]!=0)
+            {
+                timeSinceObstacle=0;
+                spawnObstacle = 0;
+                preppedObstacle = 0;
+            }
+            timeSinceObstacle++;
+        }
+        moveLeftNoWrap(obstacle, obstacleMoveSpaces);
 
         initializeToZero(sprite);
         if(airTime>=0)
         {
-            int yShift = getYShift(sprite, airTime);
+            int yShift = getYShift(sprite, airTime, spriteJumpSpeed);
             if(yShift<=0){
                 airTime=-1;
                 }
@@ -676,20 +736,21 @@ void play(){
             }
         }
         else {
-                drawSprite(sprite, spriteX, spriteY, spriteWidth, spriteHeight, spriteColor, spriteColorDistance);
+            drawSprite(sprite, spriteX, spriteY, spriteWidth, spriteHeight, spriteColor, spriteColorDistance);
         }
+        
 
         drawOntoScreen(screen, background);
         drawOntoScreen(screen, clouds);
         drawOntoScreen(screen, ground);
+        drawOntoScreen(screen, obstacle);
         drawOntoScreen(screen, sprite);
-        pauseButton.Draw();
-
+        
         displayScreen(screen);
 
         Sleep(screenDrawSleep);
         loopCounter++;
-        loopCounter%=1000000;
+        loopCounter%=100000;
         int touchX, touchY;
         if(LCD.Touch(&touchX, &touchY))
         {
@@ -704,7 +765,7 @@ void play(){
             }
             else if(pauseButton.Pressed(touchX, touchY, 0))
             {
-                Sleep(200);
+                Sleep(400);
                 waitForIconPress(pauseButton);
             }
         }
@@ -823,6 +884,25 @@ int main() {
     // Clear background
     LCD.SetBackgroundColor(BLACK);
     // LCD.Clear();
+
+  
+    // TESTING
+    // int img[screenRows][screenColumns];
+    // initializeToZero(img);
+    // drawObstacleCenteredAt(img, screenColumns/2,screenRows,10,50,BLUE,5);
+    // LCD.Clear();
+    // for(int i=0;i<screenRows;i++)
+    // {
+    //     for(int j=0;j<screenColumns;j++)
+    //     {   
+    //         LCD.SetFontColor(img[i][j]);
+    //         LCD.WriteAt(".",j,i);
+                  
+    //     }
+    // }
+    // Sleep(6.0);   
+    // cout<<"\n\nDONEEEE";
+    // return 0;
 
     while (1) {
         
